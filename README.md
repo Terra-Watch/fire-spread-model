@@ -18,9 +18,9 @@ Own environment in `.venv/` (numpy, pandas, scipy, rasterio, pyproj, shapely, nu
 
 | Layer | Source | Where |
 |---|---|---|
-| Fire detections | NASA FIRMS VIIRS 375 m, NOAA-20 and Suomi-NPP, 2019 to 2025, vegetation fires, nominal/high confidence | read in place from `wildfire-dataset/inputs_raw/firms_*` |
-| Forest land | boundary-defined forest mask, 0.001 degree | `wildfire-dataset/dataset/forest_union_0p001.npy` |
-| Land cover | ESA WorldCover 10 m, 2021 | `wildfire-dataset/_tiles/` |
+| Fire detections | NASA FIRMS VIIRS 375 m, NOAA-20 and Suomi-NPP, 2019 to 2025, vegetation fires, nominal/high confidence | read in place from `terrawatch-datasets/inputs_raw/firms_*` |
+| Forest land | boundary-defined forest mask, 0.001 degree | `terrawatch-datasets/dataset/forest_union_0p001.npy` |
+| Land cover | ESA WorldCover 10 m, 2021 | `terrawatch-datasets/_tiles/` |
 | Terrain | Copernicus DEM 30 m (public AWS bucket, read per case over HTTP) | not stored whole |
 | Weather | Open-Meteo hourly, three views: archived forecast stream, day-before forecast, ERA5 | `data/weather_cache/` |
 

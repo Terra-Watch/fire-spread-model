@@ -1,4 +1,4 @@
-"""Roads, tracks and rivers around each fire (firebreaks and access) from the local OpenStreetMap extract (wildfire-dataset/inputs_raw/osm, January 2021).
+"""Roads, tracks and rivers around each fire (firebreaks and access) from the local OpenStreetMap extract (terrawatch-datasets/inputs_raw/osm, January 2021).
 Prepare the lines once:  osmium tags-filter -o lines.osm.pbf INDIA.pbf w/highway=motorway,trunk,primary,secondary,tertiary,unclassified,track w/waterway=river
                          osmium export lines.osm.pbf -f geojsonseq -o lines.geojsonseq
 Output data/<root>/<id>/osm.npz with road_dist and river_dist in cells (240 where there are none). Safe to re-run.

@@ -1,6 +1,6 @@
 # False detections in the fire-spread work: design and plan
 
-Status: design (2026-11-05). Shared design: `docs/16-detection-quality-design.md` (one detection-quality service with a score `p_real` and reason flags). Forecasting side: `wildfire-dataset/docs/false-detections-plan.md`. Dashboard layer: `docs/15-known-heat-sources-plan.md`.
+Status: design (2026-11-05). Shared design: `docs/16-detection-quality-design.md` (one detection-quality service with a score `p_real` and reason flags). Forecasting side: `terrawatch-datasets/docs/false-detections-plan.md`. Dashboard layer: `docs/15-known-heat-sources-plan.md`.
 
 ## 1. Where false detections enter the spread work
 
@@ -15,7 +15,7 @@ What already protects us: the truth is independent of the detections (MODIS burn
 
 ## 1b. Forest-boundary check of the spread cases (done 2026-11-05, `scripts/60_boundary_audit.py`, 834 usable cases)
 
-The spread data uses the same legal-forest union as the forecasting labels (see `wildfire-dataset/docs/false-detections-plan.md`, section 1a). Results:
+The spread data uses the same legal-forest union as the forecasting labels (see `terrawatch-datasets/docs/false-detections-plan.md`, section 1a). Results:
 - **Starts are on forest land.** Mean forest share under the start footprint 0.98; one case in 834 is below 0.5, 0.8% are below 0.8. Under the start: 75% tree, 92% tree, shrub or grass, 2.4% crop, 0.02% built; 6 cases (0.7%) start mostly on crop.
 - **Industry is almost absent from the usable cases.** 1 case within 1 km of an OpenStreetMap industrial, quarry, mining or power feature, 5 within 2 km (0.6%), against 1.6% and 2.4% for the forecasting label detections. Industrial heat rarely leaves a burned patch, and the burned-patch test removes it.
 - **The spread leaves the boundary.** 94.5% of the burned truth cells lie inside the forest boundary, 5.5% outside (2.4% in crop-dominant cells); only 70% of the cells asked about (within 8 km of the start) are inside it.

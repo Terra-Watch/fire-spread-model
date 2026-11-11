@@ -6,16 +6,16 @@ shutdown -h +960   # backstop: 16 hours
 B=@BUCKET@; OUT=@OUT@; PART=@PART@; NP=@NPARTS@
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y && apt-get install -y python3-pip python3-venv pigz
-mkdir -p /opt/tw/wildfire-dataset/dataset /opt/tw/wildfire-dataset/inputs_raw/worldpop /opt/tw/wildfire-dataset/_tiles /opt/tw/fire-spread && cd /opt/tw
+mkdir -p /opt/tw/terrawatch-datasets/dataset /opt/tw/terrawatch-datasets/inputs_raw/worldpop /opt/tw/terrawatch-datasets/_tiles /opt/tw/fire-spread && cd /opt/tw
 gcloud storage cp $B/pack/code.tgz $B/pack/parquet.tgz $B/pack/forest.npy.gz $B/pack/osm_lines.geojsonseq.gz $B/pack/tiles.txt /opt/tw/
-gcloud storage cp "$B/pack/worldpop/*" wildfire-dataset/inputs_raw/worldpop/
+gcloud storage cp "$B/pack/worldpop/*" terrawatch-datasets/inputs_raw/worldpop/
 tar xzf code.tgz -C fire-spread && tar xzf parquet.tgz -C fire-spread
-pigz -dc forest.npy.gz > wildfire-dataset/dataset/forest_union_0p001.npy
+pigz -dc forest.npy.gz > terrawatch-datasets/dataset/forest_union_0p001.npy
 mkdir -p fire-spread/data && pigz -dc osm_lines.geojsonseq.gz > fire-spread/data/osm_lines.geojsonseq
 python3 -m venv venv && ./venv/bin/pip install -q numpy pandas scipy rasterio pyproj shapely numba httpx pyarrow scikit-learn joblib
 # the land cover tiles are public on AWS
-xargs -P 8 -I{} sh -c 'curl -sf -o wildfire-dataset/_tiles/{} https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/{}' < tiles.txt
-ls wildfire-dataset/_tiles | wc -l
+xargs -P 8 -I{} sh -c 'curl -sf -o terrawatch-datasets/_tiles/{} https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/{}' < tiles.txt
+ls terrawatch-datasets/_tiles | wc -l
 cd fire-spread; PY=/opt/tw/venv/bin/python
 ( while true; do sleep 300; gcloud storage cp /var/log/job.log $OUT/out/part$PART/job.log >/dev/null 2>&1; done ) &
 step() { echo "=== $(date -u +%H:%M) $*"; "$@"; }

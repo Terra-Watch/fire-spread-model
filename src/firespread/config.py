@@ -3,7 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 REPO = ROOT.parent
-V4 = REPO / "wildfire-dataset"
+V4 = REPO / "terrawatch-datasets"
 RAW = V4 / "inputs_raw"
 DATA = ROOT / "data"
 
