@@ -1,6 +1,6 @@
 """The model comparison on everything built: the pilot (with terrain) and the bank (without). Dev blocks for choosing, the frozen test blocks scored once at the end.
 Candidates: prox (baseline), engine (physics only), learned on plain features, learned with the engine's arrival time as a feature, and variants that leave one feature group out.
-Run: .venv/bin/python scripts/14_final.py"""
+Run: .venv/bin/python scripts/14_model_comparison.py"""
 import sys
 from importlib import import_module
 from pathlib import Path

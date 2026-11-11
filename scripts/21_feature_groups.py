@@ -1,6 +1,6 @@
 """Do dryness before the fire, wider landscape context and a fuel-aware path distance add to the ranking? Dev only (5-fold by block); the frozen test blocks are not touched here.
 Features are kept for the candidate cells only (8 GB of memory is not enough for whole grids).
-Run: .venv/bin/python scripts/21_new_features.py"""
+Run: .venv/bin/python scripts/21_feature_groups.py"""
 import dataclasses
 import os
 import sys

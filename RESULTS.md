@@ -1,6 +1,6 @@
 # Results so far (MODIS burn-date truth, 12-24 h horizon)
 
-Source: `scripts/14_final.py cases bank`, log `data/14_final.log`. 834 usable cases (582 dev, 252 test), 132 blocks of 1 x 1 degree. Test blocks were scored once.
+Source: `scripts/14_model_comparison.py cases bank`, log `data/14_final.log`. 834 usable cases (582 dev, 252 test), 132 blocks of 1 x 1 degree. Test blocks were scored once.
 "Direction AUC" is AUC inside distance bands, so closeness to the fire cannot help. Intervals are block bootstrap.
 
 | Model | Dev direction AUC | vs proximity | Test direction AUC | vs proximity |
@@ -41,7 +41,7 @@ Dev agrees (+0.04 to +0.06). With one common horizon the learned model beats pro
 
 # Weather source check (day-before forecast), 2024-25 test cases
 
-`scripts/19_final_model.py`, log `data/19_final_model.log`. Model without wind, fitted on dev. 56 test cases from 2024-25, but only 7 of them had the day-before forecast covering the needed hours; the other 49 fell back to the archived stream. So this check is inconclusive: the 7 cases cannot show a difference. Direction AUC with "day-before" weather was 0.636 (24 h) and 0.645 (48 h) against 0.632 and 0.640 with archived weather, which only says nothing broke.
+`scripts/19_ranking_model.py`, log `data/19_final_model.log`. Model without wind, fitted on dev. 56 test cases from 2024-25, but only 7 of them had the day-before forecast covering the needed hours; the other 49 fell back to the archived stream. So this check is inconclusive: the 7 cases cannot show a difference. Direction AUC with "day-before" weather was 0.636 (24 h) and 0.645 (48 h) against 0.632 and 0.640 with archived weather, which only says nothing broke.
 Final models saved: `data/models/rank_24h.joblib`, `rank_48h.joblib` (fitted on all 834 cases; features in the file).
 
 # More features, and IoU (scripts 20-26)

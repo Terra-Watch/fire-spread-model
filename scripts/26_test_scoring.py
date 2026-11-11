@@ -1,6 +1,6 @@
 """Final look at the frozen test blocks with the feature groups kept after the dev comparison (script 21): base features plus every new group ("+all"; greenness carried the 24 h gain, all groups together the 48 h gain).
 Fits on dev, scores test once per horizon (proximity, base, +all; direction AUC and IoU), then fits on all cases and saves data/models/rank2_<H>h.joblib. This is the second look at these test blocks (the first was script 19).
-Run: .venv/bin/python scripts/26_final_v2.py"""
+Run: .venv/bin/python scripts/26_test_scoring.py"""
 import os
 import sys
 from importlib import import_module

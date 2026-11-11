@@ -1,4 +1,4 @@
-"""v2 export (scripts/54b): the rebuild with all detections equals the stored part, and with clean detections no history count goes up. Needs data/detection_scores_lookup.parquet and data/dataset/part_test."""
+"""Detection-layer export (scripts/54b): the rebuild with all detections equals the stored part, and with clean detections no history count goes up. Needs data/detection_scores_lookup.parquet and data/dataset/part_test."""
 import importlib.util
 import json
 import shutil

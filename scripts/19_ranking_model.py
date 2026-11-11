@@ -1,6 +1,6 @@
 """Final ranking model (learned, without wind) per horizon. (1) Weather-error check: fit on dev, score the frozen-test cases of 2024-25 twice, once with the archived forecast stream and once with the day-before forecast
 (what the dashboard will really have). (2) Fit on all cases and save data/models/rank_<H>h.joblib with its feature list.
-Run: .venv/bin/python scripts/19_final_model.py"""
+Run: .venv/bin/python scripts/19_ranking_model.py"""
 import dataclasses
 import sys
 from importlib import import_module
