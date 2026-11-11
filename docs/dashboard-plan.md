@@ -1,3 +1,5 @@
+> **Superseded 2026-11-11.** This was the plan for the first Fire spread page. The dashboard now has Active fires (built from satellite detections) and Past fires (this model, checked against what burned). Current plan and status: `../../docs/23-active-fires-redesign.md`; the model results: `results.md`.
+
 # Fire spread in the dashboard: plan
 
 Status: plan only. Nothing in `website/` has been changed. Written after the second look at the frozen test blocks (see docs/results.md).

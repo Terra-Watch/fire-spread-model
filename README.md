@@ -1,12 +1,11 @@
 # fire-spread
 
-Research code for the Fire spread feature: the observed fires and their surroundings, a spread engine, and a scoring harness that decides whether the engine is any good.
-It lives apart from the dashboard (`website/`) on purpose. The dashboard is touched only after this works.
+Research code for fire spread: the observed fires and their surroundings, the spread dataset and models, and the check of the spread outlook against what burned. Its results feed the Past fires page of the dashboard (`website/`). The dashboard's Active fires board does not use this code: it is built from the satellite detections in the dashboard's own database (`docs/23-active-fires-redesign.md`).
 
 | Path | Content |
 |---|---|
 | `src/firespread/` | the library: config, viirs, forest, events, grid, rasters, weather, moisture, engine, cases, scoring, rank, imgmodels, live and more |
-| `scripts/` | numbered stages `02` to `62`, run in order (events, pilot, environment, evaluation, learned models, dataset export and audit, training, outlook); `scripts/cloud/` holds the cloud jobs |
+| `scripts/` | numbered stages `02` to `65`, run in order (events, pilot, environment, evaluation, learned models, dataset export and audit, training, outlook); `scripts/cloud/` holds the cloud jobs |
 | `tests/` | unit tests: events, grid, weather, scoring, engine, dataset, live |
 | `notebooks/` | the two explanatory notebooks |
 | `docs/` | `dataset.md`, `results.md`, `sampling-protocol.md`, `dashboard-plan.md` and the other plans |
@@ -43,10 +42,13 @@ Own environment in `.venv/` (numpy, pandas, scipy, rasterio, pyproj, shapely, nu
 - Uncertainty is by 1 x 1 degree block, never by single fires, because neighbouring fires share weather and terrain.
 - The engine's fuel numbers are priors, not measurements; no Indian fuel model exists in this project.
 
-## Scoring active fires for the dashboard
+## The outlook for the dashboard (Past fires)
+
+The served outlook is the mean of the 24 h and 48 h gated U-Net models (three seeds each), ranked into three bands within 8 km of a fire. The 24 h and 48 h models rank cells almost identically, so there is one outlook. It does not use wind. Live scoring with it is not built (`docs/live-image-scoring-plan.md`), so the dashboard shows archived 2025 fires.
 
 ```
-.venv/bin/python scripts/34_score_active.py --live --model-tag rank3 --lines data/osm_lines.geojsonseq        # last 3 days of FIRMS near-real-time, live weather forecast
-.venv/bin/python scripts/34_score_active.py --at 2025-03-12T12:00 --model-tag rank3 --lines data/osm_lines.geojsonseq   # replay of a past moment
+.venv/bin/python scripts/65_outlook_check.py --release release/fire_spread_dataset --models ../paper_fire_spread/results/models        # every test fire against what burned -> data/65_outlook_check.csv
+.venv/bin/python scripts/62_outlook_run.py --release release/fire_spread_dataset --models ../paper_fire_spread/results/models \
+    --cases release/fire_spread_dataset/cases.csv --out ../website/backend/runtime_data/fire_spread --only CASE_ID,CASE_ID,...     # the chosen example fires
 ```
-Output goes to `data/live/<run>/` (`events.json`, `<event>_<24|48>h.geojson` bands, `<event>_pixels.geojson`); copy a run folder and `skill.json` into `website/backend/runtime_data/fire_spread/` for the Fire spread page. The FIRMS key is read from `FIRMS_MAP_KEY` or `website/backend/.env` and never printed. `data/osm_lines.geojsonseq` comes from the local OpenStreetMap extract with `osmium tags-filter` and `osmium export` (see `scripts/24_osm.py`). Findings: `docs/results.md`; plan and status: `docs/dashboard-plan.md`.
+`62` writes a run folder (`events.json`, bands, burned area, places and roads, `skill.json`); copy it to `website/backend/app/fire_spread_data/` to ship it. Results: `docs/results.md` (last section: the outlook fire by fire). Older scripts (`34_score_active.py` and the tree models) are the earlier approach and are not used by the dashboard.
