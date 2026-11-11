@@ -1,6 +1,6 @@
 """Merges the audits of all exported parts into one data card and one audit report: counts by state, year and split, completeness of every layer, label statistics, agreement of the two truths, dev-versus-test comparison,
-spatial leakage between dev and test fires. Writes DATASET.md (the data card), data/dataset/meta_all.parquet and data/dataset/audit_summary.json, plus figures in data/dataset/figures/.
-Run: .venv/bin/python scripts/57_merge_audit.py PART_DIR [PART_DIR ...]      (each directory holds meta.parquet, audit.json, names.json)"""
+spatial leakage between dev and test fires. Writes docs/dataset.md (the data card), data/dataset/meta_all.parquet and data/dataset/audit_summary.json, plus figures in data/dataset/figures/.
+Run: .venv/bin/python scripts/59_merge_audit.py PART_DIR [PART_DIR ...]      (each directory holds meta.parquet, audit.json, names.json)"""
 import json
 import sys
 from pathlib import Path
@@ -70,8 +70,8 @@ def main(parts):
          "* Label statistics (mean over parts): " + "; ".join(f"{H} h: MODIS burned share of asked cells {labels[H]['modis_share_of_asked']:.2%}, VIIRS new {labels[H]['viirs_new_share_of_asked']:.2%}, share of VIIRS new cells inside MODIS-burned {labels[H]['viirs_new_inside_modis_burned_share']:.0%}" for H in (24, 48)) + ".\n",
          "## Known limits\n* The MODIS burned-area truth is 500 m and misses small burns; the VIIRS truth is 375 m and misses cloudy passes. The two agree only partly (see above).\n* Weather in the horizon comes from the archived forecast stream (a forecast, not observations).\n* Land cover is 2021, roads 2021, population 2019/2020, regardless of the fire year.\n"
          "* Canopy height is not included: the only open global map we could reach has no overviews and row-strip tiling, about ten minutes per case.\n* Fires larger than 40 km, with fewer than 3 detections at the start, or outside forest land are not in the set.\n* Fire seasons differ a lot between years (2021 has about 7 times the March detections of 2020).\n"]
-    open(Path(__file__).resolve().parents[1] / "DATASET.md", "w").write("\n".join(L))
-    print("wrote DATASET.md; cases", n, "| leakage", summary["dev_within_25km_of_a_test_fire"], "| layers >10% missing:", summary["layers_over_10pct_missing"])
+    open(Path(__file__).resolve().parents[1] / "docs/dataset.md", "w").write("\n".join(L))
+    print("wrote docs/dataset.md; cases", n, "| leakage", summary["dev_within_25km_of_a_test_fire"], "| layers >10% missing:", summary["layers_over_10pct_missing"])
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 """Audit of one exported part: layer completeness and ranges by split, label statistics, agreement of the two truths (MODIS burned area against later VIIRS detections), file hashes. Writes audit.json next to the part.
-Run: .venv/bin/python scripts/55_audit_part.py data/dataset/part_X"""
+Run: .venv/bin/python scripts/56_audit_part.py data/dataset/part_X"""
 import hashlib
 import json
 import sys

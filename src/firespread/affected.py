@@ -1,5 +1,5 @@
 """What a fire's bands run over: people, settlements, roads and public buildings inside each band, from the layers of the case plus the local OpenStreetMap extract (places.geojsonseq, osm_lines.geojsonseq).
-Used by scripts/70_outlook_run.py. Population is the 100 m layer 'pop' (people per km2), so people in a band = sum(pop) x 0.01 km2 per cell."""
+Used by scripts/62_outlook_run.py. Population is the 100 m layer 'pop' (people per km2), so people in a band = sum(pop) x 0.01 km2 per cell."""
 import json
 from pathlib import Path
 import numpy as np

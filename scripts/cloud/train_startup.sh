@@ -1,5 +1,5 @@
 #!/bin/bash
-# GPU training VM for the image models (U-Net ResNet-50, FireSenseNet). Reads instance metadata: bucket (gs:// prefix with code.tgz, sample_train.parquet and parts/part_*_v2 folders), out (gs:// results prefix), jobs (one 60_train.py argument line per line, e.g. "--model unet --horizon 24 --out runs/unet24 --epochs 30 --sample sample_train.parquet").
+# GPU training VM for the image models (U-Net ResNet-50, FireSenseNet). Reads instance metadata: bucket (gs:// prefix with code.tgz, sample_train.parquet and parts/part_*_v2 folders), out (gs:// results prefix), jobs (one 61_train.py argument line per line, e.g. "--model unet --horizon 24 --out runs/unet24 --epochs 30 --sample sample_train.parquet").
 # Each job's run folder is uploaded as soon as it ends; finished jobs (marker in the bucket) are skipped; the VM powers itself off at the end. Spot VM: a restart resumes the queue.
 exec >> /var/log/train.log 2>&1
 set -x
@@ -18,7 +18,7 @@ while IFS= read -r line; do
   if gcloud storage ls $OUT/done/$tag >/dev/null 2>&1; then echo "skip job $i"; continue; fi
   echo "=== job $i: $line"
   rs=$(echo "$line" | sed -nE 's#.*--rescore runs/([^ ]+).*#\1#p'); [ -n "$rs" ] && [ ! -d runs/$rs ] && { mkdir -p runs; gcloud storage cp -r $OUT/$rs runs/; }   # a rescoring job needs the trained model first
-  python3 -u scripts/60_train.py $(echo "$line" | sed 's#--sample sample_train.parquet#--sample data/sample_train.parquet#') --parts $PARTS || echo "job $i FAILED"
+  python3 -u scripts/61_train.py $(echo "$line" | sed 's#--sample sample_train.parquet#--sample data/sample_train.parquet#') --parts $PARTS || echo "job $i FAILED"
   outdir=$(echo "$line" | sed -E 's/.*--out ([^ ]+).*/\1/')
   gcloud storage cp -r $outdir $OUT/ && echo done | gcloud storage cp - $OUT/done/$tag
 done <<< "$JOBS"

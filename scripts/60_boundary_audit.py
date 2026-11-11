@@ -1,5 +1,5 @@
 """Forest-boundary and industrial-source check of the fire-spread cases (the same questions as c01b and c02 in wildfire-dataset, asked of the cases): is the start of the fire really on forest land, what is under the start footprint, how close is industry, and how much of the burned truth lies outside the forest boundary?
-Uses data/maps_48h.npz (usable cases) and the industrial source list from wildfire-dataset/audit/false_detections.   Run: .venv/bin/python scripts/58_boundary_audit.py"""
+Uses data/maps_48h.npz (usable cases) and the industrial source list from wildfire-dataset/audit/false_detections.   Run: .venv/bin/python scripts/60_boundary_audit.py"""
 import json
 from pathlib import Path
 

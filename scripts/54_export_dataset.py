@@ -75,7 +75,7 @@ def main(tag, limit=None):
             flags[f"truth_n_{H}"] = int(lb["y_modis"].sum()); flags[f"usable_{H}"] = bool(lb["y_modis"].sum() >= 5 and (lb["cand"] & ~lb["y_modis_all"]).sum() >= 50)
         shared["cand"][n], shared["modis_valid"][n], shared["dist"][n] = lb["cand"][sl], lb["modis_valid"][sl], c[48].dist_cells[sl]
         blk = f"{int(np.floor(m['lat']))}_{int(np.floor(m['lon']))}"
-        sd = L["seed"] > 0                                               # what lies under the start footprint (boundary and land-cover check, see FALSE_DETECTIONS_SPREAD_PLAN.md)
+        sd = L["seed"] > 0                                               # what lies under the start footprint (boundary and land-cover check, see docs/false-detections-plan.md)
         st = (m.get("state") or "?").lower()
         start = {"start_forest_share": float(L["forest_share"][sd].mean()), "start_crop": float(L["crop"][sd].mean()), "start_built": float(L["built"][sd].mean()), "start_veg": float((L["tree"] + L["shrub"] + L["grass"])[sd].mean()),
                  "region_group": "north_east" if any(k in st for k in ("arunachal", "assam", "manipur", "mizoram", "meghalaya", "nagaland", "sikkim", "tripura")) else ("himachal" if "himachal" in st else "other")}

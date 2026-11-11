@@ -1,7 +1,7 @@
 """Fills the layers that the first build left empty: burn history (53), NDVI (22) and Sentinel-2 (52), for the cases of one cleaned part (v2), and writes part_pN_v3.
 Why they were empty: the per-file sign call of the Planetary Computer was refused when many workers ran (src/firespread/burnt.py now uses one token per container). The same functions as the original scripts do the reading; the grid is the case's 192 x 192 crop, rebuilt from meta.parquet.
 Only cases with a layer fully empty are touched; a case already complete is left as it is. Resumable: progress is saved every 100 cases (gapfill_state.json next to the new part).
-Run: WORKERS=6 python scripts/56_fill_gaps.py data/dataset/part_p0_v2 [limit]"""
+Run: WORKERS=6 python scripts/57_fill_gaps.py data/dataset/part_p0_v2 [limit]"""
 import importlib.util
 import json
 import os

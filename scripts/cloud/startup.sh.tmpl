@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds one share (PART of NPARTS) of the big case set on a CPU VM and uploads the map tensors. Filled in by vm/launch.sh (@BUCKET@, @PART@, @NPARTS@).
+# Builds one share (PART of NPARTS) of the big case set on a CPU VM and uploads the map tensors. Filled in by scripts/cloud/launch.sh (@BUCKET@, @PART@, @NPARTS@).
 exec > /var/log/job.log 2>&1
 set -x
 shutdown -h +960   # backstop: 16 hours
@@ -36,7 +36,7 @@ WORKERS=4 step $PY -u scripts/53_burn_history.py      # third pass
 step $PY -u scripts/24_osm.py data/osm_lines.geojsonseq
 step $PY -u scripts/25_pop.py
 step $PY -u scripts/54_export_dataset.py p$PART
-step $PY -u scripts/55_audit_part.py data/dataset/part_p$PART
+step $PY -u scripts/56_audit_part.py data/dataset/part_p$PART
 gcloud storage cp -r data/dataset/part_p$PART $OUT/dataset/
 # keep the case bundles, so a later re-export (clean detections) does not depend on this VM disk
 tar czf /opt/tw/bundles_part$PART.tgz data/bank data/antecedent.parquet data/soil.parquet && gcloud storage cp /opt/tw/bundles_part$PART.tgz $OUT/bundles/

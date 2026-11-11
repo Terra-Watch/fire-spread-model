@@ -1,10 +1,10 @@
-"""v2 of a dataset part: the detection-derived inputs rebuilt from CLEAN detections (FALSE_DETECTIONS_SPREAD_PLAN.md, D1 to D3). v1 is left untouched.
+"""v2 of a dataset part: the detection-derived inputs rebuilt from CLEAN detections (docs/false-detections-plan.md, D1 to D3). v1 is left untouched.
 Clean = detection score p_scar >= hide (classifier v2 of wildfire-dataset, threshold fixed on 2019 to 2023) or not scored (outside the forecasting study cells, about 8%: kept, never silently dropped, counted per case).
 Replaced layers: fire_hist_90, fire_hist_365, fire_days_since, other_fires_72h. Replaced numbers: act5, act20, act_ev20. All past-only, as before.
 NOT changed: the fire's own start footprint (seed, det_frp, det_age_h, n_start, frp_sum_log, extent_km) and the labels; instead each case gets p_real_start (share of its start detections that pass), n_start_pass, n_start_unscored and admitted_v2 (D1: at least 3 passing start detections; D2: not more than 30% of the start detections flagged).
 Steps:  --build-lookup   one-time table data/detection_scores_lookup.parquet (key = lat, lon to 4 decimals + day; max score where several share a key) from the v4 audit
         PART_DIR [--check]   writes PART_DIR_v2; --check rebuilds with ALL detections and compares with the stored layers (proves the grid and the code are the same as the export's) and writes nothing.
-Run: .venv/bin/python scripts/54b_reexport_detection_layers.py data/dataset/part_p0"""
+Run: .venv/bin/python scripts/55_reexport_detection_layers.py data/dataset/part_p0"""
 import json
 import shutil
 import sys

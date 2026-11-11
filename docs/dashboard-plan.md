@@ -1,6 +1,6 @@
 # Fire spread in the dashboard: plan
 
-Status: plan only. Nothing in `website/` has been changed. Written after the second look at the frozen test blocks (see RESULTS.md).
+Status: plan only. Nothing in `website/` has been changed. Written after the second look at the frozen test blocks (see docs/results.md).
 
 ## What ships
 
@@ -9,7 +9,7 @@ Nav label **Fire spread** (Hindi आग का फैलाव, Odia ନିଆ�
 - It is a **ranking**, shown as three bands (highest, high, moderate) by rank inside the window. No percentages: the scores are not calibrated.
 - It is **not wind-driven**. Wind added nothing in every test, so the page says so and shows no wind arrows or animation.
 - A forecast is not a claim. Nothing here enters the claims ladder.
-- Skill is on the page, from RESULTS.md: direction AUC 0.70 against 0.59 for plain proximity, and IoU at the true area 0.14 (24 h) and 0.17 (48 h) against 0.11 and 0.12, on blocks the model never saw. A short note says the truth is MODIS 500 m and the numbers are low in absolute terms.
+- Skill is on the page, from docs/results.md: direction AUC 0.70 against 0.59 for plain proximity, and IoU at the true area 0.14 (24 h) and 0.17 (48 h) against 0.11 and 0.12, on blocks the model never saw. A short note says the truth is MODIS 500 m and the numbers are low in absolute terms.
 - "What drove this ranking": the few inputs that mattered for this fire (distance, greenness, land cover, fuel dryness).
 - Validation view: for past fires, the ranking drawn over what MODIS later showed burned.
 
@@ -37,7 +37,7 @@ Rough order and size: F1 to F4 about a week, F5 to F8 about a week, F9 and F10 a
 
 1. Ship bands only (recommended) or wait for the footprint test?
 2. Where the static layers and the nightly greenness cache live (the backend host, or a private bucket under one organisation-owned project, as docs/08 recommends)?
-3. Which states to serve first. Training covered the cases in RESULTS.md; elsewhere the page should carry `validated: false`.
+3. Which states to serve first. Training covered the cases in docs/results.md; elsewhere the page should carry `validated: false`.
 
 ## Known limits to state on the page
 
@@ -61,10 +61,10 @@ Not done: a schedule for the live job (every 3 hours after VIIRS passes; it need
 
 - The what-if simulator (wind and rate-of-spread inputs, ellipse engine, assets, packs; `features/scenarios/WhatIfPage.tsx`, `scenarios/whatif/`, its tests) is removed. `/app/whatif` and `/ops/fire-spread` redirect to the new page.
 - New page **Spread outlook** (`/ops/outlook`, `features/outlook/OutlookPage.tsx`, nav item for the control room): pick a fire, read one sentence (direction, ground, slope), switch 24 h / 48 h, see three bands on the map, "show what actually burned" for archived fires, the fire's facts, and a trust box (measured overlap against nearest-first and three plain limits). No sliders, no wind arrows, no distance or speed claims.
-- Model: the gated U-Net of the paper (seed 0; 24 h and 48 h). `fire-spread/scripts/70_outlook_run.py` writes a run folder; the served run is `replay-gated-20250425T2103` (7 archived 2025 test fires). The old tree-model runs and their skill file are in `website/backend/runtime_data/fire_spread_archive_tree_model/`.
+- Model: the gated U-Net of the paper (seed 0; 24 h and 48 h). `fire-spread/scripts/62_outlook_run.py` writes a run folder; the served run is `replay-gated-20250425T2103` (7 archived 2025 test fires). The old tree-model runs and their skill file are in `website/backend/runtime_data/fire_spread_archive_tree_model/`.
 - Backend: a run may carry its own `skill.json`; `GET /api/fire-spread/{run}/{event}/burned/{24|48}` serves the burned overlay of an archived fire.
 - **Not done:** live scoring with the image model. It needs the 46 picture layers and 31 numbers built from live feeds (Sentinel-2, MODIS burn and vegetation, ERA5, weather forecast, OSM, WorldCover, forest mask) for each new fire; the tree-model job (`34_score_active.py`) builds a smaller feature set. Until then the page says it shows archived fires.
 - Hindi and Odia strings are machine-written and need a native-speaker check.
 
-- Update (same day): the run is scored by the mean of three seeds; the page has a **What is in the way** card (people and area per band from WorldPop; named places and roads from OpenStreetMap through Overpass, cached, with the January 2021 extract as fallback) and controls to hide bands, show places and roads, and zoom to a place. Live scoring: `fire-spread/LIVE_IMAGE_SCORING_PLAN.md`.
+- Update (same day): the run is scored by the mean of three seeds; the page has a **What is in the way** card (people and area per band from WorldPop; named places and roads from OpenStreetMap through Overpass, cached, with the January 2021 extract as fallback) and controls to hide bands, show places and roads, and zoom to a place. Live scoring: `fire-spread/docs/live-image-scoring-plan.md`.
 - Bands (changed 2026-11-07): the cut-offs follow the usual burned share of the cells asked about at each horizon (2.18 % at 24 h, 2.93 % at 48 h): top band 1x, up to 3x, up to 7x that share. Before, they were fixed at 2, 6 and 15 % at both horizons, so the 24 h and 48 h maps looked the same.

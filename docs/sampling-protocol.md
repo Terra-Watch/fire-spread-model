@@ -1,6 +1,6 @@
 # Training sample and evaluation protocol for the image models (fixed 2026-11-05, before any image model is trained)
 
-Code: `scripts/42_sample_train.py` (draw), `scripts/60_train.py --sample data/sample_train.parquet [--train-frac f]` (use). Files: `data/sample_plan.json` (rule, counts, hash), `data/sample_train.parquet` (every case with its pool and keep flag).
+Code: `scripts/42_sample_train.py` (draw), `scripts/61_train.py --sample data/sample_train.parquet [--train-frac f]` (use). Files: `data/sample_plan.json` (rule, counts, hash), `data/sample_train.parquet` (every case with its pool and keep flag).
 
 ## Population
 The 8,911 selected cases of `data/big_cases.parquet` (28 states, 2019-01-02 to 2025-06-21). Selection rules (VIIRS events linked at 1 km and 36 h, at least 3 start detections, start in forest-boundary land, consecutive epoch pairs) do not depend on any model. A case is *usable* for training or scoring when MODIS shows at least 5 burned cells touching the fire and at least 50 candidate cells remain (`usable_24`, `usable_48`). About 35% of built cases pass (692 of 1,992 measured on 2026-11-05).

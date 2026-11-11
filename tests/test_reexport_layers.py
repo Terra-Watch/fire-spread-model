@@ -13,7 +13,7 @@ pytestmark = pytest.mark.skipif(not (R / "data" / "detection_scores_lookup.parqu
 
 
 def load():
-    sp = importlib.util.spec_from_file_location("reexport", R / "scripts" / "54b_reexport_detection_layers.py"); m = importlib.util.module_from_spec(sp); sp.loader.exec_module(m); return m
+    sp = importlib.util.spec_from_file_location("reexport", R / "scripts" / "55_reexport_detection_layers.py"); m = importlib.util.module_from_spec(sp); sp.loader.exec_module(m); return m
 
 
 def test_check_and_v2(tmp_path):

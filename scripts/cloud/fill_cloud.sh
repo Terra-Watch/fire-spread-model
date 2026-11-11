@@ -1,5 +1,5 @@
 #!/bin/bash
-# CPU VM: fills the empty burn-history, NDVI and Sentinel-2 layers (scripts/56_fill_gaps.py) of the given cleaned spread parts and uploads part_pN_v3. Metadata: parts ("3 4 5"), src (gs:// folder holding part_pN_v2 and gappack.tgz), workers.
+# CPU VM: fills the empty burn-history, NDVI and Sentinel-2 layers (scripts/57_fill_gaps.py) of the given cleaned spread parts and uploads part_pN_v3. Metadata: parts ("3 4 5"), src (gs:// folder holding part_pN_v2 and gappack.tgz), workers.
 exec >> /var/log/fill.log 2>&1
 set -x
 shutdown -h +900
@@ -15,7 +15,7 @@ for N in $PARTS; do
   P=part_p$N
   rm -rf data/dataset/${P}_${INP} data/dataset/${P}_${OUTV}
   gcloud storage cp -r $SRC/${P}_${INP} data/dataset/ || { echo "$P DOWNLOAD FAILED"; continue; }
-  WORKERS=${W:-8} PYTHONPATH=src ../venv/bin/python -u scripts/56_fill_gaps.py data/dataset/${P}_${INP} > /var/log/fill_$P.log 2>&1 || { echo "$P FILL FAILED"; tail -3 /var/log/fill_$P.log; }
+  WORKERS=${W:-8} PYTHONPATH=src ../venv/bin/python -u scripts/57_fill_gaps.py data/dataset/${P}_${INP} > /var/log/fill_$P.log 2>&1 || { echo "$P FILL FAILED"; tail -3 /var/log/fill_$P.log; }
   tail -2 /var/log/fill_$P.log
   gcloud storage cp -r data/dataset/${P}_${OUTV} $SRC/ && echo "$P ${OUTV} UPLOADED"
   gcloud storage cp /var/log/fill_$P.log $SRC/fill_logs/fill_$P.log

@@ -1,5 +1,5 @@
 """Cross-check of the refilled layers against Google Earth Engine, case by case: burn history (MCD64A1), NDVI (MOD13Q1) and Sentinel-2 (S2 harmonized), computed on the same 192 x 192 crop grid with the same rules as scripts 22, 52 and 53, then compared with what the Planetary Computer route gives.
-Run: python scripts/57_ee_check.py N_CASES   (uses the earthengine scope of the application default login and project space-debris-507012)"""
+Run: python scripts/58_ee_check.py N_CASES   (uses the earthengine scope of the application default login and project space-debris-507012)"""
 import datetime as dt
 import io
 import sys
@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT / "src")
 import importlib.util
 from firespread import grid as G  # noqa: E402
 
-spec = importlib.util.spec_from_file_location("fg", ROOT / "scripts" / "56_fill_gaps.py"); fg = importlib.util.module_from_spec(spec); spec.loader.exec_module(fg)
+spec = importlib.util.spec_from_file_location("fg", ROOT / "scripts" / "57_fill_gaps.py"); fg = importlib.util.module_from_spec(spec); spec.loader.exec_module(fg)
 cred, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/earthengine", "https://www.googleapis.com/auth/cloud-platform"])
 ee.Initialize(credentials=cred, project="space-debris-507012")
 DAY = 86400000.0

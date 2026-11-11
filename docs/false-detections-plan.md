@@ -13,7 +13,7 @@ Reading the code, in order of how much harm each does:
 
 What already protects us: the truth is independent of the detections (MODIS burned-area dates), a case is used only when at least 5 burned cells touch it (about 40% of selected cases pass), detections must sit in forest land, and a case needs at least 3 start detections. That removes most false fires from training and scoring. It does not clean the inputs, it favours fires big enough to leave a scar (a selection effect), and it does nothing for live.
 
-## 1b. Forest-boundary check of the spread cases (done 2026-11-05, `scripts/58_boundary_audit.py`, 834 usable cases)
+## 1b. Forest-boundary check of the spread cases (done 2026-11-05, `scripts/60_boundary_audit.py`, 834 usable cases)
 
 The spread data uses the same legal-forest union as the forecasting labels (see `wildfire-dataset/docs/false-detections-plan.md`, section 1a). Results:
 - **Starts are on forest land.** Mean forest share under the start footprint 0.98; one case in 834 is below 0.5, 0.8% are below 0.8. Under the start: 75% tree, 92% tree, shrub or grass, 2.4% crop, 0.02% built; 6 cases (0.7%) start mostly on crop.
@@ -42,9 +42,9 @@ What this changes: (1) report the North-East states (Mizoram, Manipur, Tripura, 
 ## 3. How it reaches the data without redoing the download
 
 The six builders on the VMs are not stopped. The slow part (burn dates, greenness, Sentinel-2, burn history, terrain) does not depend on detections. Only the detection-derived layers do, and they are computed at export time from the detection tables. So:
-- `scripts/54b_reexport_detection_layers.py` (new): reads the finished parts, replaces the layers and numbers in section 1.3, adds `dist_heat_source` and `p_real_start`, and writes a new version of each part (`dataset/part_<tag>_v2/`), leaving v1 intact.
+- `scripts/55_reexport_detection_layers.py` (new): reads the finished parts, replaces the layers and numbers in section 1.3, adds `dist_heat_source` and `p_real_start`, and writes a new version of each part (`dataset/part_<tag>_v2/`), leaving v1 intact.
 - Cases dropped by D1 or D2 get `admitted_v2 = False` in the metadata; nothing is deleted.
-- The dataset audit (`scripts/55_audit_part.py`) is extended with the new layers, the share of cases dropped per state, and the same invariants (no detection after the start is used; a case admitted in v2 is also usable in v1).
+- The dataset audit (`scripts/56_audit_part.py`) is extended with the new layers, the share of cases dropped per state, and the same invariants (no detection after the start is used; a case admitted in v2 is also usable in v1).
 
 ## 4. Order and dependencies
 

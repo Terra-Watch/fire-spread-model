@@ -3,13 +3,16 @@
 Research code for the Fire spread feature: the observed fires and their surroundings, a spread engine, and a scoring harness that decides whether the engine is any good.
 It lives apart from the dashboard (`website/`) on purpose. The dashboard is touched only after this works.
 
-```
-.venv/                 own environment (numpy, pandas, scipy, rasterio, pyproj, shapely, numba, httpx, pytest)
-src/firespread/        config, viirs, forest, events, grid, rasters, weather, moisture, engine, cases, scoring
-scripts/               01..07 in the order they are run (below)
-tests/                 18+ tests: events, grid and slope, weather parsing, scoring, engine (direction, wind, slope, moisture, barriers)
-data/                  everything this project makes (git-ignored)
-```
+| Path | Content |
+|---|---|
+| `src/firespread/` | the library: config, viirs, forest, events, grid, rasters, weather, moisture, engine, cases, scoring, rank, imgmodels, live and more |
+| `scripts/` | numbered stages `02` to `62`, run in order (events, pilot, environment, evaluation, learned models, dataset export and audit, training, outlook); `scripts/cloud/` holds the cloud jobs |
+| `tests/` | unit tests: events, grid, weather, scoring, engine, dataset, live |
+| `notebooks/` | the two explanatory notebooks |
+| `docs/` | `dataset.md`, `results.md`, `sampling-protocol.md`, `dashboard-plan.md` and the other plans |
+| `data/`, `release/` | everything the scripts make (not tracked) |
+
+Own environment in `.venv/` (numpy, pandas, scipy, rasterio, pyproj, shapely, numba, httpx, pytest). `make check` compiles every file and `make test` runs the tests.
 
 ## Data (what exists and where it comes from)
 
@@ -46,4 +49,4 @@ data/                  everything this project makes (git-ignored)
 .venv/bin/python scripts/34_score_active.py --live --model-tag rank3 --lines data/osm_lines.geojsonseq        # last 3 days of FIRMS near-real-time, live weather forecast
 .venv/bin/python scripts/34_score_active.py --at 2025-03-12T12:00 --model-tag rank3 --lines data/osm_lines.geojsonseq   # replay of a past moment
 ```
-Output goes to `data/live/<run>/` (`events.json`, `<event>_<24|48>h.geojson` bands, `<event>_pixels.geojson`); copy a run folder and `skill.json` into `website/backend/runtime_data/fire_spread/` for the Fire spread page. The FIRMS key is read from `FIRMS_MAP_KEY` or `website/backend/.env` and never printed. `data/osm_lines.geojsonseq` comes from the local OpenStreetMap extract with `osmium tags-filter` and `osmium export` (see `scripts/24_osm.py`). Findings: `RESULTS.md`; plan and status: `DASHBOARD_PLAN.md`.
+Output goes to `data/live/<run>/` (`events.json`, `<event>_<24|48>h.geojson` bands, `<event>_pixels.geojson`); copy a run folder and `skill.json` into `website/backend/runtime_data/fire_spread/` for the Fire spread page. The FIRMS key is read from `FIRMS_MAP_KEY` or `website/backend/.env` and never printed. `data/osm_lines.geojsonseq` comes from the local OpenStreetMap extract with `osmium tags-filter` and `osmium export` (see `scripts/24_osm.py`). Findings: `docs/results.md`; plan and status: `docs/dashboard-plan.md`.

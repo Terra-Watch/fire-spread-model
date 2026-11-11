@@ -1,6 +1,6 @@
 """Trains one image model on the exported dataset parts and scores it the same way as everything else (direction AUC, IoU at the true area, hits in the top 200, all against nearest-first), per case, with a block bootstrap.
 Scope v4: train = the 17 v4 states, label years up to 2023; validation = 2024; test = 2025; blind = Uttar Pradesh, West Bengal, Kerala; outside = the other states. Scope smoke is for a quick test.
-Run: python scripts/60_train.py --model unet|firesensenet --horizon 24|48 --parts PART_DIR [PART_DIR ...] --out RUN_DIR [--epochs 30] [--scope v4] [--train-fires N] [--pretrained 1]"""
+Run: python scripts/61_train.py --model unet|firesensenet --horizon 24|48 --parts PART_DIR [PART_DIR ...] --out RUN_DIR [--epochs 30] [--scope v4] [--train-fires N] [--pretrained 1]"""
 import argparse
 import json
 import sys

@@ -1,4 +1,4 @@
-"""Training sample for the image models, drawn by a fixed rule BEFORE any image model is trained (see SAMPLING_PROTOCOL.md).
+"""Training sample for the image models, drawn by a fixed rule BEFORE any image model is trained (see docs/sampling-protocol.md).
 Population: data/big_cases.parquet. Only cases of the 17 v4 training states with label year <= 2023 are sampled; validation (2024), test (2025), blind and outside cases are never thinned (keep = True).
 Rule: a fire event is kept when hash(SEED|event) < p_state, p_state = min(1, CAP / (USABLE_SHARE * selected training cases of the state)); all cases of a kept event stay together.
 u_frac (hash of a second key) gives nested subsets for the learning curve (keep and u_frac < f). Writes data/sample_train.parquet and data/sample_plan.json (rule, per-state p, counts, sha256 of the kept case list).
@@ -20,7 +20,7 @@ u = lambda key: int(hashlib.sha1(key.encode()).hexdigest()[:8], 16) / 2 ** 32
 
 def groups():
     import re
-    src = (ROOT / "scripts" / "60_train.py").read_text()
+    src = (ROOT / "scripts" / "61_train.py").read_text()
     pick = lambda name: {x.strip().strip('"') for x in re.search(name + r" = \{(.*?)\}", src, re.S).group(1).replace("\n", " ").split(",") if x.strip()}
     return pick("V4_TRAIN"), pick("V4_BLIND")
 

@@ -1,8 +1,8 @@
 """Score fires with the gated U-Net (mean of the available seeds) and write a run folder for the dashboard:
 events.json, <event>_<H>h.geojson (bands), <event>_burned_<H>h.geojson (what burned, archived fires), <event>_pixels.geojson (start footprint),
 <event>_places_<H>h.geojson and <event>_roads_<H>h.geojson (what the bands run over), skill.json is written by hand from the paper's tables.
-Replay mode: fires are 2025 test fires of the data set. Live scoring needs the 46 layers built from live feeds (see DASHBOARD_PLAN.md).
-Run: .venv/bin/python scripts/70_outlook_run.py --release RELEASE_DIR --models MODEL_DIR --cases CASES_CSV --out website/backend/runtime_data/fire_spread [--n 10]"""
+Replay mode: fires are 2025 test fires of the data set. Live scoring needs the 46 layers built from live feeds (see docs/dashboard-plan.md).
+Run: .venv/bin/python scripts/62_outlook_run.py --release RELEASE_DIR --models MODEL_DIR --cases CASES_CSV --out website/backend/runtime_data/fire_spread [--n 10]"""
 import argparse, glob, importlib.util, json, sys, datetime as dt
 from pathlib import Path
 import numpy as np, pandas as pd, torch
@@ -11,9 +11,9 @@ from rasterio.features import shapes
 from shapely.geometry import mapping, shape
 from shapely.ops import transform, unary_union
 ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT / "src")); sys.argv, argv = sys.argv[:1], sys.argv[1:]
-spec = importlib.util.spec_from_file_location("tr", ROOT / "scripts" / "60_train.py"); tr = importlib.util.module_from_spec(spec); spec.loader.exec_module(tr)
+spec = importlib.util.spec_from_file_location("tr", ROOT / "scripts" / "61_train.py"); tr = importlib.util.module_from_spec(spec); spec.loader.exec_module(tr)
 from firespread import affected as AF, grid as G, imgmodels
-PREVALENCE = {24: 0.0218, 48: 0.0293}      # share of the cells asked about that burned, mean over the data set (DATASET.md): the top band holds about as many cells as usually burn at that horizon
+PREVALENCE = {24: 0.0218, 48: 0.0293}      # share of the cells asked about that burned, mean over the data set (docs/dataset.md): the top band holds about as many cells as usually burn at that horizon
 BANDS = {h: (p, 3 * p, 7 * p) for h, p in PREVALENCE.items()}      # cumulative shares: top band = 1x, next = up to 3x, last = up to 7x the usual burned share
 COMPASS = AF.COMPASS
 ap = argparse.ArgumentParser(); ap.add_argument("--release", required=True); ap.add_argument("--models", required=True); ap.add_argument("--cases", required=True); ap.add_argument("--out", required=True)
