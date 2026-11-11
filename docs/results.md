@@ -112,3 +112,17 @@ The 24 h and 48 h models and labels are nearly the same, so the dashboard shows 
 - Timing. Among cells that burned within 48 h, the 48 h minus 24 h ranking cannot tell the ones that burned after 24 h from those before (AUC 0.47 test, 0.48 blind); plain distance from the fire does better (0.66 and 0.61). The models rank where, not when.
 - The MODIS burned-area product dates burning to the day, which probably limits any separation of the two horizons; its date error was not measured here.
 - Served outlook: mean of the two ranks (six models), scored against the 48 h truth: direction AUC 0.812 against 0.599 for nearest-first, IoU 0.248 against 0.123 (test, 250 fires). Test and blind fires had been scored before, so this is a further look at them.
+
+# The served outlook against what burned, fire by fire (script 65, 2026-11-11)
+
+`scripts/65_outlook_check.py` scores every test fire (244 of the 250 with at least 10 burned cells, 2025) with the six models and the rank rule of the dashboard, and compares the top band and the three bands with the cells that burned within 48 h (MODIS). It also gives the same numbers for "the nearest cells first" over the same area. Per-fire table: `data/65_outlook_check.csv`.
+
+| | Model | Nearest first |
+|---|---|---|
+| Top band (about 6.8 km², 2.93 % of the cells within 8 km): median share of what burned that it covers | 0.75 | 0.50 |
+| Median share of the top band that burned | 0.19 | 0.12 |
+| Three bands (about 20 km²): median share covered | 1.00 | 0.97 |
+
+- A typical fire burned 1.9 km² (quartiles 0.8 and 5.0). The top band is fixed in size, so for most fires it is several times larger than what burned (hence the low share of the band that burned); for large fires it is smaller than what burned.
+- The top band covers 80 % or more of what burned in 45 % of the fires and under 30 % in 20 % (mostly fires that burned more than 7 km²). It covers more than the nearest-first area in 70 % of the fires.
+- Four fires are shown on the dashboard (`scripts/62_outlook_run.py --only ...`): three with a good match and named villages nearby (Andhra Pradesh 2025-002622_0: 4.1 km² burned, top band covers 95 % against 34 %; Telangana 2025-003557_2: 2.0 km², 99 % against 27 %; Karnataka 2025-058426_1: 6.2 km², 79 % against 55 %) and one large fire where it falls short (Odisha 2025-007851_2: 37.5 km² burned, top band 16 %, three bands 41 %). They are examples chosen for how they read, not a random sample; the page says so and shows the numbers above for all fires.

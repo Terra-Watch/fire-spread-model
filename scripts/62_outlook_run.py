@@ -22,12 +22,15 @@ PREVALENCE = {24: 0.0218, 48: 0.0293}      # share of the cells asked about that
 BANDS = {h: (p, 3 * p, 7 * p) for h, p in PREVALENCE.items()}      # cumulative shares: top band = 1x, next = up to 3x, last = up to 7x the usual burned share
 COMPASS = AF.COMPASS
 ap = argparse.ArgumentParser(); ap.add_argument("--release", required=True); ap.add_argument("--models", required=True); ap.add_argument("--cases", required=True); ap.add_argument("--out", required=True)
-ap.add_argument("--n", type=int, default=10); ap.add_argument("--since", default="2025-04-08"); ap.add_argument("--places", default=str(ROOT / "data/places.geojsonseq")); ap.add_argument("--roads", default=str(ROOT / "data/osm_lines.geojsonseq")); a = ap.parse_args(argv)
+ap.add_argument("--n", type=int, default=10); ap.add_argument("--only", default="", help="comma-separated case ids to score instead of the default pick"); ap.add_argument("--since", default="2025-04-08"); ap.add_argument("--places", default=str(ROOT / "data/places.geojsonseq")); ap.add_argument("--roads", default=str(ROOT / "data/osm_lines.geojsonseq")); a = ap.parse_args(argv)
 cases = pd.read_csv(a.cases); cases["t"] = pd.to_datetime(cases.t0, utc=True, format="ISO8601")
 pick = cases[(cases.study_split == "test") & (cases.t >= a.since) & (cases.n_start >= 9) & (cases.truth_n_24 >= 40) & (cases.truth_n_48 >= 40)].sort_values("n_start", ascending=False)
-pick = pick.groupby("state").head(3).head(a.n).sort_values("t"); at = pick.t.max()
+pick = pick.groupby("state").head(3).head(a.n).sort_values("t")
+if a.only: pick = cases[cases.case.isin(a.only.split(","))].sort_values("t")      # chosen examples (docs/23): the case ids are looked up in the data, not filtered
+at = pick.t.max()
 run = "replay-outlook-" + at.strftime("%Y%m%dT%H%M"); out = Path(a.out) / run; out.mkdir(parents=True, exist_ok=True)
 dirs = [f"{a.release}/part_p{i}" for i in range(6)]; fires = {}
+NAMED_FILE = ROOT.parent / "wildfire-ignition-forecasting/results/named_places.parquet"; NAMED = pd.read_parquet(NAMED_FILE) if NAMED_FILE.exists() else None
 def grid_of(r): return G.Grid(int(r.epsg), float(r.grid_x0) + int(r.crop_c0) * float(r.res), float(r.grid_y0) - int(r.crop_r0) * float(r.res), float(r.res), 192, 192)
 def box_of(g):
     ll = Transformer.from_crs(g.epsg, 4326, always_xy=True).transform; xs = [g.x0, g.x0 + 192 * g.res]; ys = [g.y0, g.y0 - 192 * g.res]
@@ -110,6 +113,13 @@ for k, (_, r) in enumerate(pick.iterrows()):
     af = AF.affected(band, layers, g, PL[k], RD[k], seed)
     near = [p for p in af["places"] if p["kind"] in ("village", "town")]
     pl = [p for p in af["places"] if p["band"] > 0 or p["distance_km"] <= 3][:60]
+    if NAMED is not None:      # the named-places table of the forecast work adds villages the OpenStreetMap extract of the run lacks (distance and direction from the fire's start, not in a band)
+        have = {p["name"] for p in pl}; kx = np.cos(np.radians(r.lat)); near_ = NAMED[(abs(NAMED.lat - r.lat) < 0.06) & (abs(NAMED.lon - r.lon) < 0.06 / kx)]
+        for q_ in near_.itertuples():
+            d_ = float(np.hypot((q_.lat - r.lat) * 111.32, (q_.lon - r.lon) * 111.32 * kx))
+            if d_ <= 6 and q_.name not in have and q_.kind in ("village", "town", "hamlet"):
+                b_ = (np.degrees(np.arctan2((q_.lon - r.lon) * kx, q_.lat - r.lat)) + 360) % 360; pl.append({"name": q_.name, "kind": q_.kind, "lat": float(q_.lat), "lon": float(q_.lon), "band": 0, "distance_km": round(d_, 1), "bearing": COMPASS[int(((b_ + 22.5) % 360) // 45)]}); have.add(q_.name)
+        pl.sort(key=lambda p: (p["band"] == 0, p["distance_km"])); pl = pl[:60]
     json.dump(fc([{"type": "Feature", "geometry": {"type": "Point", "coordinates": [p["lon"], p["lat"]]}, "properties": {kk: p[kk] for kk in ("name", "kind", "band", "distance_km", "bearing")}} for p in pl]), open(out / f"{ev}_places_{H}h.geojson", "w"))
     rd = [d for d in af["roads"] if d["band"] > 0]
     json.dump(fc([{"type": "Feature", "geometry": {"type": "LineString", "coordinates": d["coords"]}, "properties": {"name": d["name"], "highway": d["highway"], "band": d["band"]}} for d in rd]), open(out / f"{ev}_roads_{H}h.geojson", "w"))
@@ -120,8 +130,20 @@ for k, (_, r) in enumerate(pick.iterrows()):
                                        "bands": {str(b): int((band == b).sum()) for b in (3, 2, 1)}, "summary": summ, "affected": {**af["summary"], "nearest_settlement": near[0] if near else None, "roads_in_bands": len(rd), "road_names": road_names, "models": n_models}}}}
     foot = polys_to_geojson(seed, g, {"footprint": True, "event": ev, "detections": int(r.n_start)}); json.dump(fc([foot] if foot else []), open(out / f"{ev}_pixels.geojson", "w"))      # the fire at the start: one outline, not one marker per cell
     print(ev, n_models, "models", len(pl), "places", len(rd), "roads", flush=True)
+CHK_FILE = ROOT / "data/65_outlook_check.csv"; CHK = pd.read_csv(CHK_FILE) if CHK_FILE.exists() else None
+if CHK is not None:
+    for ev, f in fires.items():
+        r = CHK[CHK.case == f["case"]]
+        if len(r):
+            r = r.iloc[0]; km2 = (r.res_m / 1000) ** 2
+            f["check"] = {"burned_km2": round(float(r.burned_cells * km2), 1), "top_band_km2": round(float(r.model_b1_cells * km2), 1), "top_band_capture": round(float(r.model_b1_capture), 2), "top_band_precision": round(float(r.model_b1_precision), 2),
+                          "nearest_capture": round(float(r.nearest_b1_capture), 2), "three_bands_km2": round(float(r.model_b3_cells * km2), 1), "three_bands_capture": round(float(r.model_b3_capture), 2)}
 json.dump({"run": run, "mode": "replay", "at": str(at), "model_tag": f"gated-unet-{n_models}models", "outlook": "next 1 to 2 days", "issued": dt.datetime.now(dt.timezone.utc).isoformat(), "fires": list(fires.values()),
            "note": "A ranking of the cells within 8 km of the fire for the next one to two days, not a probability and not a timing. Wind is not used. Archived fires from 2025, scored as they would have been at the time. Places and roads from OpenStreetMap (fetched when the run was made; the January 2021 extract where the service was busy); population from WorldPop 2019-2020."}, open(out / "events.json", "w"), indent=1)
 json.dump({"source": "gated U-Net, the 24 h and 48 h models averaged (three seeds each), 250 test fires (2025), cells within 8 km of the fire, scored against what burned within 48 h; reference: ranking cells by distance to the fire",
-           "horizons": {"48": {"model_iou": 0.248, "baseline_iou": 0.123, "model_direction_auc": 0.812, "baseline_direction_auc": 0.599, "cases": 250}}}, open(out / "skill.json", "w"), indent=1)
+           "horizons": {"48": {"model_iou": 0.248, "baseline_iou": 0.123, "model_direction_auc": 0.812, "baseline_direction_auc": 0.599, "cases": 250}},
+           **({"check": {"fires": int(len(CHK)), "burned_km2_median": round(float((CHK.burned_cells * (CHK.res_m / 1000) ** 2).median()), 1), "top_band_km2_median": round(float((CHK.model_b1_cells * (CHK.res_m / 1000) ** 2).median()), 1),
+                         "top_band_capture_median": round(float(CHK.model_b1_capture.median()), 2), "nearest_capture_median": round(float(CHK.nearest_b1_capture.median()), 2), "share_capture_80": round(float((CHK.model_b1_capture >= 0.8).mean()), 2),
+                         "share_capture_under_30": round(float((CHK.model_b1_capture < 0.3).mean()), 2), "share_better_than_nearest": round(float((CHK.model_b1_capture > CHK.nearest_b1_capture).mean()), 2),
+                         "three_bands_km2_median": round(float((CHK.model_b3_cells * (CHK.res_m / 1000) ** 2).median()), 1), "three_bands_capture_median": round(float(CHK.model_b3_capture.median()), 2)}} if CHK is not None else {})}, open(out / "skill.json", "w"), indent=1)
 print(run, len(fires), "fires")
