@@ -1,13 +1,18 @@
-"""Score fires with the gated U-Net (mean of the available seeds) and write a run folder for the dashboard:
-events.json, <event>_<H>h.geojson (bands), <event>_burned_<H>h.geojson (what burned, archived fires), <event>_pixels.geojson (start footprint),
-<event>_places_<H>h.geojson and <event>_roads_<H>h.geojson (what the bands run over), skill.json is written by hand from the paper's tables.
+"""Score fires with the gated U-Net and write a run folder for the dashboard. One outlook per fire ("the next one to two days"): the 24 h and the 48 h models
+rank the cells almost identically and their difference carries no timing information (docs/results.md, "One outlook, not two horizons"), so their rankings are averaged
+(mean of the seeds of each, then the mean of the two ranks). Files, all under the horizon key 48: events.json, <event>_48h.geojson (bands), <event>_burned_48h.geojson
+(what burned within 48 h, archived fires), <event>_pixels.geojson (start footprint), <event>_places_48h.geojson and <event>_roads_48h.geojson (what the bands run over),
+<event>_overlay.json (the ranking as a heat picture and a hillshade picture with their corner coordinates). skill.json is written from the measured numbers.
 Replay mode: fires are 2025 test fires of the data set. Live scoring needs the 46 layers built from live feeds (see docs/dashboard-plan.md).
 Run: .venv/bin/python scripts/62_outlook_run.py --release RELEASE_DIR --models MODEL_DIR --cases CASES_CSV --out website/backend/runtime_data/fire_spread [--n 10]"""
-import argparse, glob, importlib.util, json, sys, datetime as dt
+import argparse, base64, glob, importlib.util, io, json, sys, datetime as dt
 from pathlib import Path
 import numpy as np, pandas as pd, torch
 from pyproj import Transformer
+from PIL import Image
 from rasterio.features import shapes
+from scipy.ndimage import gaussian_filter
+from scipy.stats import rankdata
 from shapely.geometry import mapping, shape
 from shapely.ops import transform, unary_union
 ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT / "src")); sys.argv, argv = sys.argv[:1], sys.argv[1:]
@@ -21,7 +26,7 @@ ap.add_argument("--n", type=int, default=10); ap.add_argument("--since", default
 cases = pd.read_csv(a.cases); cases["t"] = pd.to_datetime(cases.t0, utc=True, format="ISO8601")
 pick = cases[(cases.study_split == "test") & (cases.t >= a.since) & (cases.n_start >= 9) & (cases.truth_n_24 >= 40) & (cases.truth_n_48 >= 40)].sort_values("n_start", ascending=False)
 pick = pick.groupby("state").head(3).head(a.n).sort_values("t"); at = pick.t.max()
-run = "replay-gated-" + at.strftime("%Y%m%dT%H%M"); out = Path(a.out) / run; out.mkdir(parents=True, exist_ok=True)
+run = "replay-outlook-" + at.strftime("%Y%m%dT%H%M"); out = Path(a.out) / run; out.mkdir(parents=True, exist_ok=True)
 dirs = [f"{a.release}/part_p{i}" for i in range(6)]; fires = {}
 def grid_of(r): return G.Grid(int(r.epsg), float(r.grid_x0) + int(r.crop_c0) * float(r.res), float(r.grid_y0) - int(r.crop_r0) * float(r.res), float(r.res), 192, 192)
 def box_of(g):
@@ -41,45 +46,82 @@ def polys_to_geojson(mask, g, props):
     ps = [shape(s) for s, v in shapes(mask.astype(np.uint8), mask=mask, transform=g.transform) if v == 1]
     return {"type": "Feature", "geometry": mapping(transform(to_ll, unary_union(ps).simplify(60.0))), "properties": props}
 fc = lambda feats: {"type": "FeatureCollection", "features": feats}
-for H in (24, 48):
-    data = tr.Data(dirs, H); ckpts = [torch.load(p, weights_only=False, map_location="cpu") for p in sorted(glob.glob(f"{a.models}/fsn_{H}_s*.pt"))]; assert ckpts, "no models"
-    models = []
+H = 48                                        # the one outlook is stored under the 48 h key (truth = burned within 48 h)
+FIRE = np.array([[255, 242, 58], [255, 184, 28], [255, 122, 18], [224, 54, 15], [179, 18, 28]], float)      # most likely (bright) to possible (deep red); the dashboard's --tw-wi-fire-1..5 tokens
+TINT = {"tree": (47, 125, 67, 0.22), "crop": (201, 154, 58, 0.16), "built": (184, 184, 200, 0.20), "water": (58, 134, 200, 0.30)}      # --tw-wi-tint-*: land cover under the shading
+def picture_url(rgba, scale=4, quality=82):
+    """A small WebP data URL (the dashboard draws it as a map image; the JSON API carries it, so no separate image route or token is needed)."""
+    im = Image.fromarray(rgba, "RGBA").resize((rgba.shape[1] * scale, rgba.shape[0] * scale), Image.BILINEAR); b = io.BytesIO(); im.save(b, "WEBP", quality=quality, method=6)
+    return "data:image/webp;base64," + base64.b64encode(b.getvalue()).decode()
+def heat_picture(rank, shown):
+    """The ranking as a picture: the top cells bright yellow, falling through orange to deep red at the edge of what is shown, then nothing. A rank, not a probability."""
+    t = np.clip(rank / shown, 0, 1); x = t * (len(FIRE) - 1); i = np.minimum(x.astype(int), len(FIRE) - 2); f = (x - i)[..., None]
+    rgb = FIRE[i] * (1 - f) + FIRE[i + 1] * f; a = np.where(rank < shown, 0.95 - 0.55 * t, 0.0)
+    a = gaussian_filter(a, 0.7); out = np.zeros(rank.shape + (4,), np.uint8); out[..., :3] = rgb.astype(np.uint8); out[..., 3] = (np.clip(a, 0, 1) * 255).astype(np.uint8); return out
+def terrain_picture(elev, cover, res, az=315.0, alt=45.0, z=3.0):
+    """Hillshade (Horn, light from the north-west) over a faint land-cover tint, as in the earlier dark terrain view. Transparent where the ground is flat and untinted."""
+    e = np.where(np.isfinite(elev), elev, np.nanmean(elev) if np.isfinite(elev).any() else 0.0); gy, gx = np.gradient(e, res)      # gy: southward (rows grow south)
+    nx, ny = -gx * z, gy * z; inv = 1 / np.sqrt(nx * nx + ny * ny + 1); a_, h_ = np.radians(az), np.radians(alt)
+    shade = np.clip((nx * np.sin(a_) * np.cos(h_) + ny * np.cos(a_) * np.cos(h_) + np.sin(h_)) * inv, 0, 1); d = (shade - np.sin(h_)) * 2.2
+    sa = np.minimum(0.85, np.abs(d)); sc = np.where(d[..., None] >= 0, 255.0, 0.0) * np.ones(3)
+    tint = np.zeros(e.shape + (3,)); ta = np.zeros(e.shape)
+    for k_, (r_, g_, b_, al) in TINT.items():
+        m_ = (cover[k_] > 0.5) & (ta == 0); tint[m_] = (r_, g_, b_); ta[m_] = al
+    a = sa + ta * (1 - sa); rgb = (sc * sa[..., None] + tint * (ta * (1 - sa))[..., None]) / np.maximum(a, 1e-6)[..., None]
+    h_, w_ = e.shape; yy, xx = np.mgrid[0:h_, 0:w_]; edge = np.minimum.reduce([yy, xx, h_ - 1 - yy, w_ - 1 - xx]) / (0.12 * min(h_, w_)); edge = np.clip(edge, 0, 1); edge = edge * edge * (3 - 2 * edge)      # fade to nothing at the border, so the picture has no hard square edge on the map
+    a = a * edge
+    out = np.zeros(e.shape + (4,), np.uint8); out[..., :3] = np.clip(rgb, 0, 255).astype(np.uint8); out[..., 3] = (a * 255).astype(np.uint8); return out
+def quad_of(g):
+    ll = Transformer.from_crs(g.epsg, 4326, always_xy=True).transform; x1, y1 = g.x0 + 192 * g.res, g.y0 - 192 * g.res
+    return [list(map(float, ll(x, y))) for x, y in ((g.x0, g.y0), (x1, g.y0), (x1, y1), (g.x0, y1))]      # top-left, top-right, bottom-right, bottom-left
+D = {h: tr.Data(dirs, h) for h in (24, 48)}; MODELS = {}
+for h in (24, 48):
+    ckpts = [torch.load(p, weights_only=False, map_location="cpu") for p in sorted(glob.glob(f"{a.models}/fsn_{h}_s*.pt"))]; assert ckpts, f"no {h} h models"
+    ms = []
     for ck in ckpts:
-        m_ = imgmodels.make("firesensenet", len(ck["sp_names"]), len(ck["sc_names"]), pretrained=False); m_.load_state_dict(ck["model"]); m_.eval(); models.append(m_)
-    data.sp_names, data.sc_names = ckpts[0]["sp_names"], ckpts[0]["sc_names"]
-    for k, (_, r) in enumerate(pick.iterrows()):
-        i = int(data.meta.index[data.meta.case == r.case][0]); raw = data.raw(i); sp = data.sp_names; names = {n: j for j, n in enumerate(json.load(open(dirs[0] + "/names.json"))["spatial"])}
-        scores = []
-        for ck, mod in zip(ckpts, models):
-            data.mu, data.sd, data.smu, data.ssd = ck["mu"], ck["sd"], ck["smu"], ck["ssd"]; x, s, y, cand, dist = data.get(i)
-            with torch.no_grad(): scores.append(torch.sigmoid(mod(torch.from_numpy(x)[None], torch.from_numpy(s)[None]))[0].numpy())
-        score = np.mean(scores, axis=0)
-        m = cand > 0; idx = np.flatnonzero(m.ravel()); rank = np.empty(len(idx)); rank[np.argsort(-score.ravel()[idx])] = np.arange(len(idx)) / len(idx)
-        band = np.zeros(m.shape, np.int8).ravel(); band[idx] = np.select([rank < BANDS[H][0], rank < BANDS[H][1], rank < BANDS[H][2]], [3, 2, 1], 0); band = band.reshape(m.shape)
-        g = grids[k]; ev = f"replay-{r.case.replace('_', '-')}"; seed = raw[0][sp.index("seed")] > 0
-        feats = [f for b in (1, 2, 3) if (f := polys_to_geojson(band == b, g, {"band": b, "event": ev, "horizon_h": H, "run": run, "mode": "replay"}))]
-        json.dump(fc(feats), open(out / f"{ev}_{H}h.geojson", "w"))
-        burned = polys_to_geojson(y > 0, g, {"band": 0, "burned": True, "event": ev, "horizon_h": H}); json.dump(fc([burned] if burned else []), open(out / f"{ev}_burned_{H}h.geojson", "w"))
-        rr, cc = np.nonzero(seed); top = band == 3; tr_, tc_ = np.nonzero(top)
-        dy, dx = -(tr_.mean() - rr.mean()), tc_.mean() - cc.mean(); deg = (np.degrees(np.arctan2(dx, dy)) + 360) % 360
-        cover = {k_: float(raw[0][names[k_]][top | (band == 2)].mean()) for k_ in ("tree", "shrub", "grass", "crop")}
-        up = float((raw[0][names["slope_along"]][top] > 0).mean())
-        summ = {"bearing_deg": round(float(deg)), "bearing": COMPASS[int(((deg + 22.5) % 360) // 45)], "cover": max(cover, key=cover.get), "cover_share": round(max(cover.values()), 2), "uphill_share": round(up, 2), "slope_deg": round(float(raw[0][names["slope"]][top].mean()), 1)}
-        layers = {k_: raw[0][names[k_]] for k_ in ("pop", "tree", "shrub", "grass", "crop", "built", "water")}
-        af = AF.affected(band, layers, g, PL[k], RD[k], seed)
-        near = [p for p in af["places"] if p["kind"] in ("village", "town")]
-        pl = [p for p in af["places"] if p["band"] > 0 or p["distance_km"] <= 3][:60]
-        json.dump(fc([{"type": "Feature", "geometry": {"type": "Point", "coordinates": [p["lon"], p["lat"]]}, "properties": {kk: p[kk] for kk in ("name", "kind", "band", "distance_km", "bearing")}} for p in pl]), open(out / f"{ev}_places_{H}h.geojson", "w"))
-        rd = [d for d in af["roads"] if d["band"] > 0]
-        json.dump(fc([{"type": "Feature", "geometry": {"type": "LineString", "coordinates": d["coords"]}, "properties": {"name": d["name"], "highway": d["highway"], "band": d["band"]}} for d in rd]), open(out / f"{ev}_roads_{H}h.geojson", "w"))
-        road_names = sorted({d["name"] for d in rd if d["name"]})[:8]
-        f = fires.setdefault(ev, {"event": ev, "case": r.case, "state": r.state, "lat": float(r.lat), "lon": float(r.lon), "n_detections": int(r.n_start), "first_detection": str(r.t), "last_detection": str(r.t),
-                                  "frp_sum": round(float(np.expm1(float(data.S[int(data.meta.part.iloc[i])][int(data.meta.row.iloc[i])][json.load(open(dirs[0] + "/names.json"))["scalars"].index("frp_sum_log")]))), 1), "horizons": {}})
-        f["horizons"][str(H)] = {"file": f"{ev}_{H}h.geojson", "burned_file": f"{ev}_burned_{H}h.geojson", "places_file": f"{ev}_places_{H}h.geojson", "roads_file": f"{ev}_roads_{H}h.geojson", "cells_scored": int(m.sum()), "weather_source": str(r.weather_source),
-                                 "bands": {str(b): int((band == b).sum()) for b in (3, 2, 1)}, "summary": summ, "affected": {**af["summary"], "nearest_settlement": near[0] if near else None, "roads_in_bands": len(rd), "road_names": road_names, "models": len(models)}}
-        if H == 24:      # the fire at the start: its footprint as one outline (the cells within 190 m of its detections), not one marker per cell
-            foot = polys_to_geojson(seed, g, {"footprint": True, "event": ev, "detections": int(r.n_start)}); json.dump(fc([foot] if foot else []), open(out / f"{ev}_pixels.geojson", "w"))
-        print(H, ev, len(models), "seeds", len(pl), "places", len(rd), "roads", flush=True)
-json.dump({"run": run, "mode": "replay", "at": str(at), "model_tag": "gated-unet-3seeds", "issued": dt.datetime.now(dt.timezone.utc).isoformat(), "fires": list(fires.values()),
-           "note": "A ranking of the cells within 8 km of the fire, not a probability. Wind is not used. Archived fires from 2025, scored as they would have been at the time. Places and roads from OpenStreetMap (fetched when the run was made; the January 2021 extract where the service was busy); population from WorldPop 2019-2020."}, open(out / "events.json", "w"), indent=1)
+        m_ = imgmodels.make("firesensenet", len(ck["sp_names"]), len(ck["sc_names"]), pretrained=False); m_.load_state_dict(ck["model"]); m_.eval(); ms.append(m_)
+    D[h].sp_names, D[h].sc_names = ckpts[0]["sp_names"], ckpts[0]["sc_names"]; MODELS[h] = (ckpts, ms)
+def score_of(h, i):
+    cks, ms = MODELS[h]; d = D[h]; out = []
+    for ck, mod in zip(cks, ms):
+        d.mu, d.sd, d.smu, d.ssd = ck["mu"], ck["sd"], ck["smu"], ck["ssd"]; x, s, _, _, _ = d.get(i)
+        with torch.no_grad(): out.append(torch.sigmoid(mod(torch.from_numpy(x)[None], torch.from_numpy(s)[None]))[0].numpy())
+    return np.mean(out, axis=0)
+data = D[48]; n_models = sum(len(v[1]) for v in MODELS.values()); names = {n: j for j, n in enumerate(json.load(open(dirs[0] + "/names.json"))["spatial"])}; sc_all = json.load(open(dirs[0] + "/names.json"))["scalars"]
+for k, (_, r) in enumerate(pick.iterrows()):
+    i = int(data.meta.index[data.meta.case == r.case][0]); raw = data.raw(i); sp = data.sp_names; y, cand = raw[2], raw[3]
+    m = cand > 0; idx = np.flatnonzero(m.ravel()); both = rankdata(-score_of(24, i).ravel()[idx]) + rankdata(-score_of(48, i).ravel()[idx])      # mean of the two ranks (1 = most likely)
+    rank = np.empty(len(idx)); rank[np.argsort(both, kind="stable")] = np.arange(len(idx)) / len(idx)
+    band = np.zeros(m.shape, np.int8).ravel(); band[idx] = np.select([rank < BANDS[H][0], rank < BANDS[H][1], rank < BANDS[H][2]], [3, 2, 1], 0); band = band.reshape(m.shape)
+    rank_map = np.ones(m.shape).ravel(); rank_map[idx] = rank; rank_map = rank_map.reshape(m.shape)
+    g = grids[k]; ev = f"replay-{r.case.replace('_', '-')}"; seed = raw[0][sp.index("seed")] > 0
+    feats = [f for b in (1, 2, 3) if (f := polys_to_geojson(band == b, g, {"band": b, "event": ev, "horizon_h": H, "run": run, "mode": "replay"}))]
+    json.dump(fc(feats), open(out / f"{ev}_{H}h.geojson", "w"))
+    burned = polys_to_geojson(y > 0, g, {"band": 0, "burned": True, "event": ev, "horizon_h": H}); json.dump(fc([burned] if burned else []), open(out / f"{ev}_burned_{H}h.geojson", "w"))
+    cover_layers = {k_: raw[0][sp.index(k_)] for k_ in ("tree", "crop", "built", "water")}
+    json.dump({"coordinates": quad_of(g), "heat": picture_url(heat_picture(rank_map, BANDS[H][2])), "terrain": picture_url(terrain_picture(raw[0][sp.index("elev")], cover_layers, float(g.res)), scale=2),
+               "note": "heat: rank of the cells asked about, brightest = most likely, shown down to the edge of the lowest band; not a probability"}, open(out / f"{ev}_overlay.json", "w"))
+    rr, cc = np.nonzero(seed); top = band == 3; tr_, tc_ = np.nonzero(top)
+    dy, dx = -(tr_.mean() - rr.mean()), tc_.mean() - cc.mean(); deg = (np.degrees(np.arctan2(dx, dy)) + 360) % 360
+    cover = {k_: float(raw[0][names[k_]][top | (band == 2)].mean()) for k_ in ("tree", "shrub", "grass", "crop")}
+    up = float((raw[0][names["slope_along"]][top] > 0).mean())
+    summ = {"bearing_deg": round(float(deg)), "bearing": COMPASS[int(((deg + 22.5) % 360) // 45)], "cover": max(cover, key=cover.get), "cover_share": round(max(cover.values()), 2), "uphill_share": round(up, 2), "slope_deg": round(float(raw[0][names["slope"]][top].mean()), 1)}
+    layers = {k_: raw[0][names[k_]] for k_ in ("pop", "tree", "shrub", "grass", "crop", "built", "water")}
+    af = AF.affected(band, layers, g, PL[k], RD[k], seed)
+    near = [p for p in af["places"] if p["kind"] in ("village", "town")]
+    pl = [p for p in af["places"] if p["band"] > 0 or p["distance_km"] <= 3][:60]
+    json.dump(fc([{"type": "Feature", "geometry": {"type": "Point", "coordinates": [p["lon"], p["lat"]]}, "properties": {kk: p[kk] for kk in ("name", "kind", "band", "distance_km", "bearing")}} for p in pl]), open(out / f"{ev}_places_{H}h.geojson", "w"))
+    rd = [d for d in af["roads"] if d["band"] > 0]
+    json.dump(fc([{"type": "Feature", "geometry": {"type": "LineString", "coordinates": d["coords"]}, "properties": {"name": d["name"], "highway": d["highway"], "band": d["band"]}} for d in rd]), open(out / f"{ev}_roads_{H}h.geojson", "w"))
+    road_names = sorted({d["name"] for d in rd if d["name"]})[:8]
+    frp = float(np.expm1(float(data.S[int(data.meta.part.iloc[i])][int(data.meta.row.iloc[i])][sc_all.index("frp_sum_log")])))
+    fires[ev] = {"event": ev, "case": r.case, "state": r.state, "lat": float(r.lat), "lon": float(r.lon), "n_detections": int(r.n_start), "first_detection": str(r.t), "last_detection": str(r.t), "frp_sum": round(frp, 1), "overlay_file": f"{ev}_overlay.json",
+                 "horizons": {str(H): {"file": f"{ev}_{H}h.geojson", "burned_file": f"{ev}_burned_{H}h.geojson", "places_file": f"{ev}_places_{H}h.geojson", "roads_file": f"{ev}_roads_{H}h.geojson", "cells_scored": int(m.sum()), "weather_source": str(r.weather_source),
+                                       "bands": {str(b): int((band == b).sum()) for b in (3, 2, 1)}, "summary": summ, "affected": {**af["summary"], "nearest_settlement": near[0] if near else None, "roads_in_bands": len(rd), "road_names": road_names, "models": n_models}}}}
+    foot = polys_to_geojson(seed, g, {"footprint": True, "event": ev, "detections": int(r.n_start)}); json.dump(fc([foot] if foot else []), open(out / f"{ev}_pixels.geojson", "w"))      # the fire at the start: one outline, not one marker per cell
+    print(ev, n_models, "models", len(pl), "places", len(rd), "roads", flush=True)
+json.dump({"run": run, "mode": "replay", "at": str(at), "model_tag": f"gated-unet-{n_models}models", "outlook": "next 1 to 2 days", "issued": dt.datetime.now(dt.timezone.utc).isoformat(), "fires": list(fires.values()),
+           "note": "A ranking of the cells within 8 km of the fire for the next one to two days, not a probability and not a timing. Wind is not used. Archived fires from 2025, scored as they would have been at the time. Places and roads from OpenStreetMap (fetched when the run was made; the January 2021 extract where the service was busy); population from WorldPop 2019-2020."}, open(out / "events.json", "w"), indent=1)
+json.dump({"source": "gated U-Net, the 24 h and 48 h models averaged (three seeds each), 250 test fires (2025), cells within 8 km of the fire, scored against what burned within 48 h; reference: ranking cells by distance to the fire",
+           "horizons": {"48": {"model_iou": 0.248, "baseline_iou": 0.123, "model_direction_auc": 0.812, "baseline_direction_auc": 0.599, "cases": 250}}}, open(out / "skill.json", "w"), indent=1)
 print(run, len(fires), "fires")

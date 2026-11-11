@@ -102,3 +102,13 @@ A small U-Net (4 levels, 25 epochs, random turns and flips) on the same 47-chann
 | 48 h | average of both | 0.695 | 0.151 |
 
 Reading: the U-Net is slightly ahead at 24 h (+0.016 direction AUC, +0.019 IoU) and tied at 48 h; the intervals overlap, and per-case paired differences were not saved. Both clearly beat proximity. Dev only; the frozen test blocks were not used.
+
+# One outlook, not two horizons (scripts 63 and 64, 2026-11-11)
+
+The 24 h and 48 h models and labels are nearly the same, so the dashboard shows one outlook ("next 1 to 2 days").
+
+- Truth. Over all 2,930 cases the cells that burned within 24 h are always a subset of those within 48 h; the two sets are identical in 45% of the cases, and the 48 h set adds under 10% more cells in 59%. Median Jaccard overlap 0.96. Burned cells: 1.57 million at 24 h, 2.10 million at 48 h.
+- Models (three seeds each, scored on the 250 test and 205 blind-state fires, truth = burned within 48 h). Median rank correlation of the two score maps 0.92 (test) and 0.89 (blind). Direction AUC on test: 24 h model 0.805, 48 h model 0.808, average of both 0.812; on blind states 0.833, 0.806, 0.826. IoU on test 0.249, 0.240, 0.248; blind 0.256, 0.224, 0.247. On blind states the 24 h model is better than the 48 h model at the 48 h task (direction AUC +0.027, interval [0.009, 0.049]).
+- Timing. Among cells that burned within 48 h, the 48 h minus 24 h ranking cannot tell the ones that burned after 24 h from those before (AUC 0.47 test, 0.48 blind); plain distance from the fire does better (0.66 and 0.61). The models rank where, not when.
+- The MODIS burned-area product dates burning to the day, which probably limits any separation of the two horizons; its date error was not measured here.
+- Served outlook: mean of the two ranks (six models), scored against the 48 h truth: direction AUC 0.812 against 0.599 for nearest-first, IoU 0.248 against 0.123 (test, 250 fires). Test and blind fires had been scored before, so this is a further look at them.
