@@ -125,7 +125,8 @@ for k, (_, r) in enumerate(pick.iterrows()):
     json.dump(fc([{"type": "Feature", "geometry": {"type": "LineString", "coordinates": d["coords"]}, "properties": {"name": d["name"], "highway": d["highway"], "band": d["band"]}} for d in rd]), open(out / f"{ev}_roads_{H}h.geojson", "w"))
     road_names = sorted({d["name"] for d in rd if d["name"]})[:8]
     frp = float(np.expm1(float(data.S[int(data.meta.part.iloc[i])][int(data.meta.row.iloc[i])][sc_all.index("frp_sum_log")])))
-    fires[ev] = {"event": ev, "case": r.case, "state": r.state, "lat": float(r.lat), "lon": float(r.lon), "n_detections": int(r.n_start), "first_detection": str(r.t), "last_detection": str(r.t), "frp_sum": round(frp, 1), "overlay_file": f"{ev}_overlay.json",
+    nearest_ = min(pl, key=lambda q: q["distance_km"]) if pl else None
+    fires[ev] = {"place": ({k_: nearest_[k_] for k_ in ("name", "kind", "distance_km", "bearing")} if nearest_ else None), "event": ev, "case": r.case, "state": r.state, "lat": float(r.lat), "lon": float(r.lon), "n_detections": int(r.n_start), "first_detection": str(r.t), "last_detection": str(r.t), "frp_sum": round(frp, 1), "overlay_file": f"{ev}_overlay.json",
                  "horizons": {str(H): {"file": f"{ev}_{H}h.geojson", "burned_file": f"{ev}_burned_{H}h.geojson", "places_file": f"{ev}_places_{H}h.geojson", "roads_file": f"{ev}_roads_{H}h.geojson", "cells_scored": int(m.sum()), "weather_source": str(r.weather_source),
                                        "bands": {str(b): int((band == b).sum()) for b in (3, 2, 1)}, "summary": summ, "affected": {**af["summary"], "nearest_settlement": near[0] if near else None, "roads_in_bands": len(rd), "road_names": road_names, "models": n_models}}}}
     foot = polys_to_geojson(seed, g, {"footprint": True, "event": ev, "detections": int(r.n_start)}); json.dump(fc([foot] if foot else []), open(out / f"{ev}_pixels.geojson", "w"))      # the fire at the start: one outline, not one marker per cell
