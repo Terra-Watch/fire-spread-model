@@ -1,0 +1,47 @@
+#!/bin/bash
+# Builds one share (PART of NPARTS) of the big case set on a CPU VM and uploads the map tensors. Filled in by vm/launch.sh (@BUCKET@, @PART@, @NPARTS@).
+exec > /var/log/job.log 2>&1
+set -x
+shutdown -h +960   # backstop: 16 hours
+B=@BUCKET@; OUT=@OUT@; PART=@PART@; NP=@NPARTS@
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y && apt-get install -y python3-pip python3-venv pigz
+mkdir -p /opt/tw/wildfire-dataset/dataset /opt/tw/wildfire-dataset/inputs_raw/worldpop /opt/tw/wildfire-dataset/_tiles /opt/tw/fire-spread && cd /opt/tw
+gcloud storage cp $B/pack/code.tgz $B/pack/parquet.tgz $B/pack/forest.npy.gz $B/pack/osm_lines.geojsonseq.gz $B/pack/tiles.txt /opt/tw/
+gcloud storage cp "$B/pack/worldpop/*" wildfire-dataset/inputs_raw/worldpop/
+tar xzf code.tgz -C fire-spread && tar xzf parquet.tgz -C fire-spread
+pigz -dc forest.npy.gz > wildfire-dataset/dataset/forest_union_0p001.npy
+mkdir -p fire-spread/data && pigz -dc osm_lines.geojsonseq.gz > fire-spread/data/osm_lines.geojsonseq
+python3 -m venv venv && ./venv/bin/pip install -q numpy pandas scipy rasterio pyproj shapely numba httpx pyarrow scikit-learn joblib
+# the land cover tiles are public on AWS
+xargs -P 8 -I{} sh -c 'curl -sf -o wildfire-dataset/_tiles/{} https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/{}' < tiles.txt
+ls wildfire-dataset/_tiles | wc -l
+cd fire-spread; PY=/opt/tw/venv/bin/python
+( while true; do sleep 300; gcloud storage cp /var/log/job.log $OUT/out/part$PART/job.log >/dev/null 2>&1; done ) &
+step() { echo "=== $(date -u +%H:%M) $*"; "$@"; }
+WORKERS=6 step $PY -u scripts/41_build_part.py $PART $NP
+WORKERS=6 step $PY -u scripts/41_build_part.py $PART $NP          # second pass for the ones that failed
+WORKERS=4 step $PY -u scripts/41_build_part.py $PART $NP          # third pass, gentler on the signing limit
+WORKERS=6 step $PY -u scripts/17_burn_long.py
+WORKERS=6 step $PY -u scripts/17_burn_long.py
+WORKERS=4 step $PY -u scripts/17_burn_long.py
+step $PY -u scripts/20_antecedent.py & P20=$!; step $PY -u scripts/23_soil.py & P23=$!; WORKERS=6 step $PY -u scripts/22_ndvi.py; wait $P20 $P23   # not a bare wait: it also waits for the endless log-upload loop and never returns
+WORKERS=6 step $PY -u scripts/22_ndvi.py
+WORKERS=12 step $PY -u scripts/52_sentinel2.py
+WORKERS=12 step $PY -u scripts/52_sentinel2.py      # second pass for the ones that failed
+WORKERS=6 step $PY -u scripts/52_sentinel2.py       # third pass
+WORKERS=8 step $PY -u scripts/53_burn_history.py
+WORKERS=8 step $PY -u scripts/53_burn_history.py      # second pass for the ones that failed
+WORKERS=4 step $PY -u scripts/53_burn_history.py      # third pass
+step $PY -u scripts/24_osm.py data/osm_lines.geojsonseq
+step $PY -u scripts/25_pop.py
+step $PY -u scripts/54_export_dataset.py p$PART
+step $PY -u scripts/55_audit_part.py data/dataset/part_p$PART
+gcloud storage cp -r data/dataset/part_p$PART $OUT/dataset/
+# keep the case bundles, so a later re-export (clean detections) does not depend on this VM disk
+tar czf /opt/tw/bundles_part$PART.tgz data/bank data/antecedent.parquet data/soil.parquet && gcloud storage cp /opt/tw/bundles_part$PART.tgz $OUT/bundles/
+gcloud storage cp data/antecedent.parquet data/soil.parquet $OUT/out/part$PART/
+gcloud storage cp /var/log/job.log $OUT/out/part$PART/job.log
+echo PART_DONE
+gcloud storage cp /var/log/job.log $OUT/out/part$PART/job.log
+shutdown -h now

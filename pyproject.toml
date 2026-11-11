@@ -1,0 +1,9 @@
+[project]
+name = "firespread"
+version = "0.1.0"
+description = "Fire spread: data, simulation engine and validation for India (research code; the dashboard comes after it works)."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
